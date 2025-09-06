@@ -11,6 +11,7 @@
 #include <QAudioFormat>
 #include <QMediaDevices>
 #include <QAudioSink>
+#include <QtConcurrent/QtConcurrent>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -21,29 +22,33 @@ extern "C" {
 #include <libswresample/swresample.h>
 }
 
-class videoDecoder : public QObject {
+class VideoDecoder : public QObject {
     Q_OBJECT
 public:
-    explicit videoDecoder();
-    ~videoDecoder();
+    explicit VideoDecoder();
+    ~VideoDecoder();
 
     bool openFile(const QString &filename);
     void start();
     void stop();
     void pause(); // 暂停
     void resume(); // 继续
-    void updateAudioClock(double pts, double duration);
+    void updateAudioClock(double pts);
 
 signals:
-    void frameReady(const QImage &frame);
-
+    void frameReady(int w, int h,
+                     const uint8_t* y, int yStride,
+                     const uint8_t* u, int uStride,
+                     const uint8_t* v, int vStride);
 private:
+    void checkPause();
     void demuxLoop();
     void audioDecodeLoop();
     void videoDecodeLoop();
     double getAudioClock();
     void videoThread();
     void audioThread();
+    double getMasterClock();
 
     AVFormatContext *formatCtx_ = nullptr;
     int videoStreamIdx_ = -1;
@@ -57,6 +62,10 @@ private:
 
     std::atomic<bool> isRunning_{false};
     std::atomic<bool> isPaused_{false};
+
+    std::atomic<bool> isAudioReady_{false};
+    std::mutex startMtx_;
+    std::condition_variable startCond_;
 
     QMutex pauseMutex_;
     QWaitCondition pauseCond_;
@@ -75,6 +84,15 @@ private:
     const AVCodec *audioCodec_;
     AVCodecContext *audioCodecCtx_;
 
+    QIODevice *audioDevice_;
+    int bytesPerSecond_ = 0;
+
+    double audioClockPts_ = 0;
+    double audioClockDuration_ = 0;
+
+    double last_delay_= 0;
+    double last_pts_ = 0;
+
     QAudioSink* audioSink_;
 
 
@@ -83,7 +101,6 @@ private:
     double currentAudioPts_ = 0.0;          // 当前播放帧的PTS
     double currentAudioDuration_ = 0.0;     // 当前播放帧持续时间
 
-    double audioStartPts_ = 0.0;
     QElapsedTimer audioPlaybackTimer_;
     QMutex audioClockMutex_;
 

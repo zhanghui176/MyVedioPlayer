@@ -1,13 +1,14 @@
 #include "VideoPlayer.h"
 #include "ui_VideoPlayer.h"
+#include "OpenGLVideoWidget.h"
 #include <QFileDialog>
 #include <QMessageBox>
 
 videoPlayer::videoPlayer(QWidget *parent)
     : QMainWindow(parent)
+    , decoder(VideoDecoder())
     , ui(new Ui::videoPlayer)
     , isPlaying_(false)
-    , videoFps_(0)
 {
     ui->setupUi(this);
     videoTimer_ = new QTimer(this);
@@ -16,10 +17,9 @@ videoPlayer::videoPlayer(QWidget *parent)
     mainLayout = new QVBoxLayout(mainWidget);
 
     // 视频显示区域
-    ui->videoLabel->setAlignment(Qt::AlignCenter);
-    ui->videoLabel->setStyleSheet("background-color: black;");
-    ui->videoLabel->setMinimumSize(640, 480);
-    mainLayout->addWidget( ui->videoLabel, 1);
+    ui->VedioWidget->setMinimumSize(640,480);
+    ui->VedioWidget->setStyleSheet("background-color: black;");
+    mainLayout->addWidget( ui->VedioWidget, 1);
 
     // 控制区域
     controlLayout = new QHBoxLayout();
@@ -35,8 +35,25 @@ videoPlayer::videoPlayer(QWidget *parent)
 
     setCentralWidget(mainWidget);
 
-    connect(&decoder, &videoDecoder::frameReady,  // 2. 发送方
-            this, &videoPlayer::update_Frames);  // 3. 接收方
+    // connect(&decoder, &VideoDecoder::frameReady,  // 2. 发送方
+    //         this, &VideoDecoder::update_Frames);  // 3. 接收方
+
+    // 获取提升后的控件指针
+    OpenGLVideoWidget *glWidget = qobject_cast<OpenGLVideoWidget*>(
+        ui->VedioWidget  // UI文件中提升的控件对象名
+        );
+
+    std::cout << "glWidget: " << glWidget;
+
+    auto conn = connect(&decoder, &VideoDecoder::frameReady,
+            glWidget, &OpenGLVideoWidget::setYUV420PFrame, Qt::QueuedConnection);
+
+    if (!conn) {
+        std::cout << " connect failed" << std::endl;
+    } else {
+        std::cout << "conenct successfully" << std::endl;
+    }
+
     // connect(ui->openButton, &QPushButton::clicked, this, &videoPlayer::on_open_clicked);
     // connect(ui->ProgressSlider, &QSlider::sliderMoved, this, &videoPlayer::on_ProgressSlider_sliderMoved);
     // connect(ui->volumeSlider, &QSlider::valueChanged, this, &videoPlayer::on_volumeSlider_sliderMoved);
@@ -49,14 +66,32 @@ videoPlayer::~videoPlayer()
 
 void videoPlayer::on_PlayPause_clicked()
 {
-    decoder.start();
+
+    if (!isStart_)
+    {
+        decoder.start();
+        isPlaying_ = true;
+        isStart_ = true;
+        return;
+    }
+    if (isPlaying_)
+    {
+        decoder.pause();
+        isPlaying_ = false;
+    }
+    else
+    {
+        decoder.resume();
+        isPlaying_ = true;
+    }
+
 }
 
 void videoPlayer::update_Frames(const QImage &frame)
 {
     if (!frame.isNull())
     {
-         ui->videoLabel->setPixmap(QPixmap::fromImage(frame));
+        //ui->videoLabel->setPixmap(QPixmap::fromImage(frame));
     }
     //ui->ProgressSlider->setValue(capture_.get(cv::CAP_PROP_POS_FRAMES));
 }

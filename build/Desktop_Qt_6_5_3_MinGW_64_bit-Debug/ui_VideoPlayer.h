@@ -9,10 +9,10 @@
 #ifndef UI_VIDEOPLAYER_H
 #define UI_VIDEOPLAYER_H
 
+#include <OpenGLVideoWidget.h>
 #include <QtCore/QVariant>
 #include <QtGui/QAction>
 #include <QtWidgets/QApplication>
-#include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
@@ -28,11 +28,11 @@ class Ui_videoPlayer
 public:
     QWidget *centralwidget;
     QPushButton *openButton;
-    QLabel *videoLabel;
     QSlider *ProgressSlider;
     QPushButton *pushButton;
     QPushButton *PlayPause;
     QSlider *volumeSlider;
+    OpenGLVideoWidget *VedioWidget;
     QMenuBar *menubar;
     QMenu *menunew;
     QStatusBar *statusbar;
@@ -47,13 +47,10 @@ public:
         openButton = new QPushButton(centralwidget);
         openButton->setObjectName("openButton");
         openButton->setGeometry(QRect(11, 11, 75, 23));
-        videoLabel = new QLabel(centralwidget);
-        videoLabel->setObjectName("videoLabel");
-        videoLabel->setGeometry(QRect(10, 60, 651, 411));
         ProgressSlider = new QSlider(centralwidget);
         ProgressSlider->setObjectName("ProgressSlider");
         ProgressSlider->setGeometry(QRect(10, 440, 681, 22));
-        ProgressSlider->setOrientation(Qt::Orientation::Horizontal);
+        ProgressSlider->setOrientation(Qt::Horizontal);
         pushButton = new QPushButton(centralwidget);
         pushButton->setObjectName("pushButton");
         pushButton->setGeometry(QRect(110, 490, 75, 23));
@@ -63,7 +60,10 @@ public:
         volumeSlider = new QSlider(centralwidget);
         volumeSlider->setObjectName("volumeSlider");
         volumeSlider->setGeometry(QRect(250, 490, 51, 22));
-        volumeSlider->setOrientation(Qt::Orientation::Horizontal);
+        volumeSlider->setOrientation(Qt::Horizontal);
+        VedioWidget = new OpenGLVideoWidget(centralwidget);
+        VedioWidget->setObjectName("VedioWidget");
+        VedioWidget->setGeometry(QRect(10, 60, 681, 371));
         videoPlayer->setCentralWidget(centralwidget);
         menubar = new QMenuBar(videoPlayer);
         menubar->setObjectName("menubar");
@@ -86,7 +86,6 @@ public:
     {
         videoPlayer->setWindowTitle(QCoreApplication::translate("videoPlayer", "MainWindow", nullptr));
         openButton->setText(QCoreApplication::translate("videoPlayer", "open", nullptr));
-        videoLabel->setText(QCoreApplication::translate("videoPlayer", "TextLabel", nullptr));
         pushButton->setText(QCoreApplication::translate("videoPlayer", "PushButton", nullptr));
         PlayPause->setText(QCoreApplication::translate("videoPlayer", "PlayPause", nullptr));
         menunew->setTitle(QCoreApplication::translate("videoPlayer", "My VedioPlayer", nullptr));

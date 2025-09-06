@@ -1,7 +1,9 @@
-QT       += core gui multimedia
+QT       += core gui multimedia widgets openglwidgets
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
+
+INCLUDEPATH += $$[QT_INSTALL_HEADERS]
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -9,6 +11,7 @@ CONFIG += c++17
 
 SOURCES += \
     LoginDialog.cpp \
+    OpenGLVideoWidget.cpp \
     VideoDecoder.cpp \
     VideoPlayer.cpp \
     main.cpp \
@@ -17,6 +20,7 @@ SOURCES += \
 HEADERS += \
     FrameBuffer.h \
     LoginDialog.h \
+    OpenGLVideoWidget.h \
     VideoDecoder.h \
     VideoPlayer.h \
     mainwindow.h
@@ -39,8 +43,11 @@ LIBS += "D:/lib/ffmpeg-7.1.1-full_build-shared/lib/libavcodec.dll.a" \
         "D:/lib/ffmpeg-7.1.1-full_build-shared/lib/libswscale.dll.a" \
         "D:/lib/ffmpeg-7.1.1-full_build-shared/lib/libavutil.dll.a" \
         "D:/lib/ffmpeg-7.1.1-full_build-shared/lib/libswresample.dll.a"
+LIBS += -lopengl32
 INCLUDEPATH += "D:/lib/opencv/opencv-build/install/include"
 INCLUDEPATH += "D:/lib/ffmpeg-7.1.1-full_build-shared/include"
 
 message(QT version:$$[QT_VERSION])
 
+RESOURCES += \
+    resources.qrc

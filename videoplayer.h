@@ -42,12 +42,13 @@ private slots:
     void startDecode();
 
 private:
-    videoDecoder decoder;
+    VideoDecoder decoder;
     QWidget *mainWidget;
     QVBoxLayout *mainLayout;
     QHBoxLayout *controlLayout;
     Ui::videoPlayer *ui;
-    bool isPlaying_;
+    bool isPlaying_ = false;
+    bool isStart_ = false;
     double videoFps_;
     QTimer *videoTimer_;
     cv::VideoCapture capture_;

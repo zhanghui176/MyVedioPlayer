@@ -1,24 +1,23 @@
 #include "VideoDecoder.h"
 #include <iostream>
-#include <QtConcurrent/QtConcurrent>
 
-videoDecoder::videoDecoder()
-    : videoBuffer_(FrameBuffer<AVPacket*>(10, false)),
-    audioBuffer_(FrameBuffer<AVPacket*>(15, false)),
+VideoDecoder::VideoDecoder()
+    : videoBuffer_(FrameBuffer<AVPacket*>(30, false)),
+    audioBuffer_(FrameBuffer<AVPacket*>(80, true)),
     videoFrameBuffer_(FrameBuffer<AVFrame*>(3, false)),
-    audioFrameBuffer_(FrameBuffer<AVFrame*>(3, false))
+    audioFrameBuffer_(FrameBuffer<AVFrame*>(6, false))
 {
     avformat_network_init();
 }
 
-videoDecoder::~videoDecoder() {
+VideoDecoder::~VideoDecoder() {
     stop();
     avformat_network_deinit();
     avcodec_free_context(&vedioCodecCtx_);
     avcodec_free_context(&audioCodecCtx_);
 }
 
-bool videoDecoder::openFile(const QString &filename) {
+bool VideoDecoder::openFile(const QString &filename) {
     if (avformat_open_input(&formatCtx_, filename.toUtf8().constData(), nullptr, nullptr) != 0) {
         std::cout << "无法打开文件";
         return false;
@@ -56,10 +55,13 @@ bool videoDecoder::openFile(const QString &filename) {
     avcodec_parameters_to_context(audioCodecCtx_, audioCodecPar_);
     avcodec_open2(audioCodecCtx_, audioCodec_, nullptr);
 
+    bytesPerSecond_ = audioCodecCtx_->sample_rate * audioCodecCtx_->ch_layout.nb_channels *
+                      av_get_bytes_per_sample(audioCodecCtx_->sample_fmt);
+    std::cout << "audio sample rate: " << audioCodecCtx_->sample_rate << ",channels is " << audioCodecCtx_->ch_layout.nb_channels << std::endl;
     return true;
 }
 
-void videoDecoder::start() {
+void VideoDecoder::start() {
     isRunning_ = true;
     demuxThread_ = QThread::create([this](){ demuxLoop(); });
     audioDecodeThread_ = QThread::create([this](){ audioDecodeLoop(); });
@@ -75,7 +77,7 @@ void videoDecoder::start() {
     audioTimer_.start();
 }
 
-void videoDecoder::stop() {
+void VideoDecoder::stop() {
     isRunning_ = false;
     if (demuxThread_) { demuxThread_->quit(); demuxThread_->wait(); delete demuxThread_; demuxThread_ = nullptr; }
     if (audioDecodeThread_) { audioDecodeThread_->quit(); audioDecodeThread_->wait(); delete audioDecodeThread_; audioDecodeThread_ = nullptr; }
@@ -84,44 +86,91 @@ void videoDecoder::stop() {
     if (audioThread_) { audioThread_->quit(); audioThread_->wait(); delete audioThread_; audioThread_ = nullptr; }
 }
 
-void videoDecoder::pause() {
-    isPaused_ = true;
+void VideoDecoder::pause() {
+    {
+        QMutexLocker locker(&pauseMutex_);
+        isPaused_ = true;
+        std::cout << "Pause here" << std::endl;
+    }
+    // 停止音频设备
+    if (audioSink_) {
+        audioSink_->suspend(); // 暂停音频输出
+    }
+    pauseCond_.wakeAll();
 }
 
-void videoDecoder::resume() {
+void VideoDecoder::resume() {
     {
         QMutexLocker locker(&pauseMutex_);
         isPaused_ = false;
+        std::cout << "Resume here" << std::endl;
+    }
+
+    audioFrameBuffer_.clear();
+
+    if (audioSink_) {
+        // 彻底清理缓冲，重新 start
+        audioSink_->stop();
+        audioDevice_ = audioSink_->start();
+        if (!audioDevice_) {
+            std::cout << "重新启动音频设备失败" << std::endl;
+        }
+        audioSink_->resume();
     }
     pauseCond_.wakeAll(); // 唤醒所有等待的线程
 }
 
+// 更新音频时钟
+void VideoDecoder::updateAudioClock(double pts) {
+    QMutexLocker lock(&audioClockMutex_);
+    audioClockPts_ = pts;
+}
+
+double VideoDecoder::getAudioClock()
+{
+    QMutexLocker lock(&audioClockMutex_);
+
+    if (!audioSink_ || bytesPerSecond_ <= 0)
+        return audioClockPts_;
+
+    // 输出设备缓冲还有多少数据没播放
+    int buffered = audioSink_->bufferSize() - audioSink_->bytesFree();
+
+    // 音频时钟 = 最后 pts - 缓冲未播放时间
+    double buffer_delay = (double)buffered / bytesPerSecond_;
+    return audioClockPts_ - buffer_delay;
+}
+
 // 通用暂停检查函数
-inline void checkPause(QMutex &pauseMutex, QWaitCondition &pauseCond, std::atomic<bool> &isPaused, std::atomic<bool> &isRunning) {
-    QMutexLocker locker(&pauseMutex);
-    while (isPaused && isRunning) {
-        pauseCond.wait(&pauseMutex);
+inline void VideoDecoder::checkPause() {
+    QMutexLocker locker(&pauseMutex_);
+    while (isPaused_ && isRunning_) {
+        pauseCond_.wait(&pauseMutex_);
     }
 }
 
-void videoDecoder::demuxLoop() {
+void VideoDecoder::demuxLoop() {
     AVPacket* pkt = av_packet_alloc();
     while (isRunning_) {
+        checkPause();
         if (av_read_frame(formatCtx_, pkt) < 0) break;
 
         if (pkt->stream_index == videoStreamIdx_) {
             videoBuffer_.enqueue(av_packet_clone(pkt));
+            std::cout << "videoBuffer_.enqueue ... size is " << videoBuffer_.size() << std::endl;
         } else if (pkt->stream_index == audioStreamIdx_) {
             audioBuffer_.enqueue(av_packet_clone(pkt));
+            std::cout << "audioBuffer_.enqueue ... size is " << audioBuffer_.size() << std::endl;
         }
         av_packet_unref(pkt);
     }
     av_packet_free(&pkt);
 }
 
-void videoDecoder::audioDecodeLoop() {
+void VideoDecoder::audioDecodeLoop() {
     AVFrame *aFrame = av_frame_alloc();
     while (isRunning_) {
+        checkPause();
         auto aPktOpt = audioBuffer_.dequeue();
         AVPacket* aPkt;
         if (aPktOpt) aPkt = aPktOpt.value();
@@ -136,11 +185,12 @@ void videoDecoder::audioDecodeLoop() {
     av_frame_free(&aFrame);
 }
 
-void videoDecoder::videoDecodeLoop() {
+void VideoDecoder::videoDecodeLoop() {
 
     AVFrame *frame = av_frame_alloc();
 
     while (isRunning_) {
+        checkPause();
         auto vPktOpt = videoBuffer_.dequeue();
         AVPacket* vPkt;
         if (vPktOpt) vPkt = vPktOpt.value();
@@ -156,22 +206,12 @@ void videoDecoder::videoDecodeLoop() {
     av_frame_free(&frame);
 }
 
-void videoDecoder::updateAudioClock(double pts, double duration) {
-    QMutexLocker lock(&audioClockMutex_);
-    audioClock_ = pts; // 更新为当前帧结束时间
-}
-
-
-double videoDecoder::getAudioClock() {
-    QMutexLocker lock(&audioClockMutex_);
-    return audioClock_;
-}
-
-void videoDecoder::videoThread()
+void VideoDecoder::videoThread()
 {
     SwsContext *swsctx = nullptr;
     while (isRunning_)
     {
+        checkPause();
         auto frameOpt = videoFrameBuffer_.dequeue();
         AVFrame* frame;
         if (frameOpt)
@@ -183,13 +223,32 @@ void videoDecoder::videoThread()
             continue;
         }
 
+        {
+            std::unique_lock<std::mutex> lk(startMtx_);
+            if (!isAudioReady_.load()) {
+                startCond_.wait_for(lk, std::chrono::milliseconds(3000),
+                                  [&]{ return isAudioReady_.load(); });
+            }
+        }
+
         double pts = (frame->pts == AV_NOPTS_VALUE) ?
                          frame->best_effort_timestamp * av_q2d(formatCtx_->streams[videoStreamIdx_]->time_base) :
                          frame->pts * av_q2d(formatCtx_->streams[videoStreamIdx_]->time_base);
 
         // 音视频同步逻辑
-        double audioClock = getAudioClock();
-        double diff = pts - audioClock;
+        // double audioClock = getAudioClock();
+        // double diff = pts - audioClock;
+        // --- step1: 计算帧间隔 ---
+        double frame_delay = pts - last_pts_;
+        if (frame_delay <= 0 || frame_delay > 1.0) {
+            // 如果异常，使用上一次间隔
+            frame_delay = last_delay_;
+        }
+        last_delay_= frame_delay;
+        last_pts_ = pts;
+
+        // --- step2: 音视频时钟差 ---
+        double diff = pts - getAudioClock();
 
         std::cout << "Video PTS:" << pts
                  << " | Audio Clock:" << getAudioClock()
@@ -203,28 +262,41 @@ void videoDecoder::videoThread()
         }
 
 
-        // 处理不同步情况
-        if (diff > 0.04) { // 视频超前>100ms
-            std::cout << "sleep " << diff << std::endl;
-           QThread::usleep(static_cast<int>(diff * 0.5 * 1e6));
-        } else if (diff < -0.1) { // 视频落后>100ms
-            std::cout << "drop " << diff << std::endl;
-            continue; // 丢弃当前帧
+        // --- step3: 调整间隔 ---
+        double sync_threshold = std::max(0.01, std::min(0.1, frame_delay));
+        if (fabs(diff) < 10.0) {
+            if (diff <= -sync_threshold) {
+                // 视频太慢 → 丢帧
+                std::cout << "drop video frame, diff=" << diff << std::endl;
+                av_frame_free(&frame);
+                continue;
+            } else if (diff >= sync_threshold) {
+                // 视频太快 → 延迟一点
+                frame_delay = std::min(frame_delay, diff);
+            }
         }
 
-        QImage img(vedioCodecCtx_->width, vedioCodecCtx_->height, QImage::Format_RGB32);
-        uint8_t *dstData[4] = {img.bits(), nullptr, nullptr, nullptr};
-        int dstLinesize[4] = {static_cast<int>(img.bytesPerLine()), 0, 0, 0};
-        sws_scale(swsctx, frame->data, frame->linesize, 0, vedioCodecCtx_->height, dstData, dstLinesize);
+        // --- step4: 延迟显示 ---
+        int delay_us = (int)(frame_delay * 1e6);
+        if (delay_us > 0) QThread::usleep(delay_us);
 
-        emit frameReady(img);
+        if (!frame) continue;
 
+        int w = frame->width;
+        int h = frame->height;
+        const uint8_t* y = frame->data[0];
+        int yStride = frame->linesize[0];
+        const uint8_t* u = frame->data[1];
+        int uStride = frame->linesize[1];
+        const uint8_t* v = frame->data[2];
+        int vStride = frame->linesize[2];
 
+        emit frameReady(w, h, y, yStride, u, uStride, v, vStride);
     }
     sws_freeContext(swsctx);
 }
 
-void videoDecoder::audioThread()
+void VideoDecoder::audioThread()
 {
     // 创建音频重采样器
     AVChannelLayout out_ch_layout;
@@ -278,6 +350,7 @@ void videoDecoder::audioThread()
     }
     while (isRunning_)
     {
+        checkPause();
         auto aPktOpt = audioFrameBuffer_.dequeue();
         AVFrame* aFrame;
         if (aPktOpt)
@@ -293,15 +366,6 @@ void videoDecoder::audioThread()
                          aFrame->best_effort_timestamp * av_q2d(formatCtx_->streams[audioStreamIdx_]->time_base) :
                          aFrame->pts * av_q2d(formatCtx_->streams[audioStreamIdx_]->time_base);
         double duration = aFrame->nb_samples / (double)aFrame->sample_rate;
-
-        // 更新音频时钟
-        updateAudioClock(pts, duration);
-
-        // 存储音频帧信息用于同步
-        {
-            // QMutexLocker lock(&audioClockMutex_);
-            // audioFrames_.enqueue({pts, duration});
-        }
 
 
         // 计算输出缓冲区大小
@@ -321,6 +385,17 @@ void videoDecoder::audioThread()
             std::cout << "buffer_size error" << std::endl;
             continue;
         }
+        /*
+        std::cout << "SampleRate:" << format.sampleRate()
+                 << "Channels:" << format.channelCount()
+                 << "BytesPerFrame:" << format.bytesPerFrame()
+                  << "SampleFormat:" << format.sampleFormat() << std::endl;
+
+        std::cout << "FFmpeg frame channels: " << aFrame->ch_layout.nb_channels
+                  << " sample_rate: " << aFrame->sample_rate
+                  << " format: " << av_get_sample_fmt_name((AVSampleFormat)aFrame->format)
+                  << std::endl;
+        */
 
         int samples_converted = swr_convert(
             swr_ctx,
@@ -330,23 +405,27 @@ void videoDecoder::audioThread()
             aFrame->nb_samples
             );
 
+
         if (samples_converted > 0) {
-            // 计算实际数据大小 (样本数 × 通道数 × 每个样本字节数)
-            int data_size = samples_converted * format.channelCount() * (format.bytesPerSample());
+            int data_size = samples_converted * format.channelCount() * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
 
-            // 动态等待：按设备空闲比例调整
+            // std::cout << "samples_converted is " << samples_converted << ", data_size : " << data_size;
+
             int free_bytes = audioSink_->bytesFree();
-            if (free_bytes < data_size) {
-                // 计算缓冲区空闲比例 (0~1)
-                float free_ratio = static_cast<float>(free_bytes) / data_size;
+            int bufferSize = audioSink_->bufferSize();
+            int used = bufferSize - free_bytes;
 
-                // 动态等待公式：基础等待 + 空闲比例补偿
-                int dynamicWait = 10 + static_cast<int>((1 - free_ratio) * 40); // 10ms~50ms
-                dynamicWait = qBound(5, dynamicWait, 100); // 限制范围5ms~100ms
-                std::cout << "wait for " << dynamicWait << " ms " << std::endl;
+            // 当前缓冲时长（ms）
+            int msBuffered = (bytesPerSecond_ > 0)
+                                 ? static_cast<int>((double)used / bytesPerSecond_ * 1000.0)
+                                 : 0;
 
+            // 避免缓冲超过 200ms 堆积 → 等待一小会儿
+            if (msBuffered > 200) {
+                int dynamicWait = qMin(msBuffered - 200, 50); // 最多等 50ms
+                std::cout << "dynamicWait for " << dynamicWait << std::endl;
                 QThread::msleep(dynamicWait);
-                free_bytes = audioSink_->bytesFree(); // 重新检查
+                free_bytes = audioSink_->bytesFree();
             }
 
             // 写入前二次验证缓冲区
@@ -355,17 +434,24 @@ void videoDecoder::audioThread()
                     reinterpret_cast<const char*>(output_buffer),
                     data_size
                     );
-                std::cout << "audio in:" << bytesWritten << "/" << data_size << ", audio pts is " << pts << std::endl;
 
-                if (bytesWritten != data_size) {
-                    std::cout << "audio not complete:" << bytesWritten << "/" << data_size << std::endl;
-                }
+                updateAudioClock(pts);
+                std::cout << "audio in:" << bytesWritten << "/" << data_size
+                          << ", audio pts is " << pts << ", getAudioClock "  << getAudioClock() << std::endl;
             } else {
-                std::cout << "drop audio frame" << std::endl; // 记录异常
+                std::cout << "drop audio frame" << std::endl;
+            }
+
+            {
+                std::lock_guard<std::mutex> lk(startMtx_);
+                if (!isAudioReady_.load()) {
+                    // audio_first_pts = pts;
+                    isAudioReady_.store(true);
+                    startCond_.notify_all();
+                }
             }
 
             // 写入音频设备
-
         }
 
         // 释放输出缓冲区

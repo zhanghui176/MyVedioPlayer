@@ -242,12 +242,15 @@ Makefile: ../../vedioPlayer2.pro ../../../../6.5.3/mingw_64/mkspecs/features/spe
 		../../../../6.5.3/mingw_64/mkspecs/features/lex.prf \
 		../../vedioPlayer2.pro \
 		../../../../6.5.3/mingw_64/lib/Qt6Multimedia.prl \
+		../../../../6.5.3/mingw_64/lib/Qt6OpenGLWidgets.prl \
 		../../../../6.5.3/mingw_64/lib/Qt6Widgets.prl \
+		../../../../6.5.3/mingw_64/lib/Qt6OpenGL.prl \
 		../../../../6.5.3/mingw_64/lib/Qt6Gui.prl \
 		../../../../6.5.3/mingw_64/lib/Qt6Network.prl \
 		../../../../6.5.3/mingw_64/lib/Qt6Core.prl \
 		../../../../6.5.3/mingw_64/lib/Qt6EntryPoint.prl \
-		../../../../6.5.3/mingw_64/mkspecs/features/build_pass.prf
+		../../../../6.5.3/mingw_64/mkspecs/features/build_pass.prf \
+		../../resources.qrc
 	$(QMAKE) -o Makefile ..\..\vedioPlayer2.pro -spec win32-g++ "CONFIG+=debug" "CONFIG+=qml_debug"
 ../../../../6.5.3/mingw_64/mkspecs/features/spec_pre.prf:
 ../../../../6.5.3/mingw_64/mkspecs/features/device_config.prf:
@@ -421,12 +424,15 @@ Makefile: ../../vedioPlayer2.pro ../../../../6.5.3/mingw_64/mkspecs/features/spe
 ../../../../6.5.3/mingw_64/mkspecs/features/lex.prf:
 ../../vedioPlayer2.pro:
 ../../../../6.5.3/mingw_64/lib/Qt6Multimedia.prl:
+../../../../6.5.3/mingw_64/lib/Qt6OpenGLWidgets.prl:
 ../../../../6.5.3/mingw_64/lib/Qt6Widgets.prl:
+../../../../6.5.3/mingw_64/lib/Qt6OpenGL.prl:
 ../../../../6.5.3/mingw_64/lib/Qt6Gui.prl:
 ../../../../6.5.3/mingw_64/lib/Qt6Network.prl:
 ../../../../6.5.3/mingw_64/lib/Qt6Core.prl:
 ../../../../6.5.3/mingw_64/lib/Qt6EntryPoint.prl:
 ../../../../6.5.3/mingw_64/mkspecs/features/build_pass.prf:
+../../resources.qrc:
 qmake: FORCE
 	@$(QMAKE) -o Makefile ..\..\vedioPlayer2.pro -spec win32-g++ "CONFIG+=debug" "CONFIG+=qml_debug"
 
