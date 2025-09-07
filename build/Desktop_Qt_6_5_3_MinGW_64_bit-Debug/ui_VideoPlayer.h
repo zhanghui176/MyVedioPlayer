@@ -13,6 +13,7 @@
 #include <QtCore/QVariant>
 #include <QtGui/QAction>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QMenuBar>
@@ -33,6 +34,7 @@ public:
     QPushButton *PlayPause;
     QSlider *volumeSlider;
     OpenGLVideoWidget *VedioWidget;
+    QLabel *durationLabel;
     QMenuBar *menubar;
     QMenu *menunew;
     QStatusBar *statusbar;
@@ -49,7 +51,7 @@ public:
         openButton->setGeometry(QRect(11, 11, 75, 23));
         ProgressSlider = new QSlider(centralwidget);
         ProgressSlider->setObjectName("ProgressSlider");
-        ProgressSlider->setGeometry(QRect(10, 440, 681, 22));
+        ProgressSlider->setGeometry(QRect(10, 440, 611, 22));
         ProgressSlider->setOrientation(Qt::Horizontal);
         pushButton = new QPushButton(centralwidget);
         pushButton->setObjectName("pushButton");
@@ -64,6 +66,9 @@ public:
         VedioWidget = new OpenGLVideoWidget(centralwidget);
         VedioWidget->setObjectName("VedioWidget");
         VedioWidget->setGeometry(QRect(10, 60, 681, 371));
+        durationLabel = new QLabel(centralwidget);
+        durationLabel->setObjectName("durationLabel");
+        durationLabel->setGeometry(QRect(630, 440, 61, 19));
         videoPlayer->setCentralWidget(centralwidget);
         menubar = new QMenuBar(videoPlayer);
         menubar->setObjectName("menubar");
@@ -88,6 +93,7 @@ public:
         openButton->setText(QCoreApplication::translate("videoPlayer", "open", nullptr));
         pushButton->setText(QCoreApplication::translate("videoPlayer", "PushButton", nullptr));
         PlayPause->setText(QCoreApplication::translate("videoPlayer", "PlayPause", nullptr));
+        durationLabel->setText(QCoreApplication::translate("videoPlayer", "TextLabel", nullptr));
         menunew->setTitle(QCoreApplication::translate("videoPlayer", "My VedioPlayer", nullptr));
     } // retranslateUi
 

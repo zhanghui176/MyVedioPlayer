@@ -39,13 +39,23 @@ private slots:
 
     void on_openButton_clicked();
 
+    void update_progress(double progress);
+
     void startDecode();
+
+    void on_ProgressSlider_sliderPressed();
+
+    void on_ProgressSlider_sliderReleased();
+
+    void show_progress(double progress);
 
 private:
     VideoDecoder decoder;
     QWidget *mainWidget;
     QVBoxLayout *mainLayout;
     QHBoxLayout *controlLayout;
+    double videoDuration_;
+    int finalPosition_ = 0;
     Ui::videoPlayer *ui;
     bool isPlaying_ = false;
     bool isStart_ = false;
@@ -54,6 +64,7 @@ private:
     cv::VideoCapture capture_;
     int frames_;
     AVFormatContext* formatCtx;
+    bool isSeeking = false;
 };
 
 #endif // VIDEOPLAYER_H

@@ -3,6 +3,7 @@
 #include "OpenGLVideoWidget.h"
 #include <QFileDialog>
 #include <QMessageBox>
+#include <Utility.h>
 
 videoPlayer::videoPlayer(QWidget *parent)
     : QMainWindow(parent)
@@ -21,6 +22,8 @@ videoPlayer::videoPlayer(QWidget *parent)
     ui->VedioWidget->setStyleSheet("background-color: black;");
     mainLayout->addWidget( ui->VedioWidget, 1);
 
+    // ui->durationLabel->hide();
+
     // 控制区域
     controlLayout = new QHBoxLayout();
 
@@ -30,6 +33,7 @@ videoPlayer::videoPlayer(QWidget *parent)
     controlLayout->addWidget(ui->openButton);
     controlLayout->addWidget(ui->PlayPause);
     controlLayout->addWidget(ui->ProgressSlider, 1);
+    controlLayout->addWidget(ui->durationLabel);
 
     mainLayout->addLayout(controlLayout);
 
@@ -37,18 +41,20 @@ videoPlayer::videoPlayer(QWidget *parent)
 
     // connect(&decoder, &VideoDecoder::frameReady,  // 2. 发送方
     //         this, &VideoDecoder::update_Frames);  // 3. 接收方
+    ui->durationLabel->setText("00:00");
 
     // 获取提升后的控件指针
     OpenGLVideoWidget *glWidget = qobject_cast<OpenGLVideoWidget*>(
         ui->VedioWidget  // UI文件中提升的控件对象名
         );
 
-    std::cout << "glWidget: " << glWidget;
-
-    auto conn = connect(&decoder, &VideoDecoder::frameReady,
+    auto conn1 = connect(&decoder, &VideoDecoder::frameReady,
             glWidget, &OpenGLVideoWidget::setYUV420PFrame, Qt::QueuedConnection);
 
-    if (!conn) {
+    auto conn2 = connect(&decoder, &VideoDecoder::updateProgress,
+                        this, &videoPlayer::update_progress, Qt::QueuedConnection);
+
+    if (!conn1 && !conn2) {
         std::cout << " connect failed" << std::endl;
     } else {
         std::cout << "conenct successfully" << std::endl;
@@ -96,6 +102,23 @@ void videoPlayer::update_Frames(const QImage &frame)
     //ui->ProgressSlider->setValue(capture_.get(cv::CAP_PROP_POS_FRAMES));
 }
 
+void videoPlayer::show_progress(double progress)
+{
+        ui->ProgressSlider->setValue(static_cast<int>(progress * 1000));
+        auto strProgress = Utility::formatSecondToQTime(progress);
+        auto strDuration = Utility::formatSecondToQTime(videoDuration_);
+        auto string = strProgress + "/" + strDuration;
+        ui->durationLabel->setText(string);
+}
+
+void videoPlayer::update_progress(double progress)
+{
+    if (!isSeeking)
+    {
+        show_progress(progress);
+    }
+}
+
 void videoPlayer::startDecode()
 {
 
@@ -109,14 +132,29 @@ void videoPlayer::on_pushButton_clicked()
 
 void videoPlayer::on_volumeSlider_sliderMoved(int position)
 {
+
+}
+
+void videoPlayer::on_ProgressSlider_sliderPressed()
+{
+    isSeeking = true;
 }
 
 
 void videoPlayer::on_ProgressSlider_sliderMoved(int position)
 {
-
+    show_progress(position/1000);
+    finalPosition_ = position;
+    // decoder.seek(time);
 }
 
+void videoPlayer::on_ProgressSlider_sliderReleased()
+{
+    double time = static_cast<double>(finalPosition_) / 1000;
+    std::cout << "seek time, time is " << time;
+    decoder.seek(time);
+    isSeeking = false;
+}
 
 void videoPlayer::on_openButton_clicked()
 {
@@ -124,6 +162,14 @@ void videoPlayer::on_openButton_clicked()
     if(filename.isEmpty()) return;
 
     decoder.openFile(filename);
+    videoDuration_ = decoder.getDuration();
+    ui->ProgressSlider->setRange(0, static_cast<int>(videoDuration_ * 1000));
+    auto videoDuration = Utility::formatSecondToQTime(videoDuration_);
+    if (ui->durationLabel)
+    {
+        ui->durationLabel->setText(videoDuration);
+    }
+
 /*
     capture_.open(filename.toStdString());
     if(!capture_.isOpened()) {
@@ -137,4 +183,6 @@ void videoPlayer::on_openButton_clicked()
 */
 
 }
+
+
 

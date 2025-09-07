@@ -49,11 +49,13 @@ static constexpr auto qt_meta_stringdata_CLASSVideoDecoderENDCLASS = QtMocHelper
     "u",
     "uStride",
     "v",
-    "vStride"
+    "vStride",
+    "updateProgress",
+    "time"
 );
 #else  // !QT_MOC_HAS_STRING_DATA
 struct qt_meta_stringdata_CLASSVideoDecoderENDCLASS_t {
-    uint offsetsAndSizes[24];
+    uint offsetsAndSizes[28];
     char stringdata0[13];
     char stringdata1[11];
     char stringdata2[1];
@@ -66,6 +68,8 @@ struct qt_meta_stringdata_CLASSVideoDecoderENDCLASS_t {
     char stringdata9[8];
     char stringdata10[2];
     char stringdata11[8];
+    char stringdata12[15];
+    char stringdata13[5];
 };
 #define QT_MOC_LITERAL(ofs, len) \
     uint(sizeof(qt_meta_stringdata_CLASSVideoDecoderENDCLASS_t::offsetsAndSizes) + ofs), len 
@@ -82,7 +86,9 @@ Q_CONSTINIT static const qt_meta_stringdata_CLASSVideoDecoderENDCLASS_t qt_meta_
         QT_MOC_LITERAL(54, 1),  // "u"
         QT_MOC_LITERAL(56, 7),  // "uStride"
         QT_MOC_LITERAL(64, 1),  // "v"
-        QT_MOC_LITERAL(66, 7)   // "vStride"
+        QT_MOC_LITERAL(66, 7),  // "vStride"
+        QT_MOC_LITERAL(74, 14),  // "updateProgress"
+        QT_MOC_LITERAL(89, 4)   // "time"
     },
     "VideoDecoder",
     "frameReady",
@@ -95,7 +101,9 @@ Q_CONSTINIT static const qt_meta_stringdata_CLASSVideoDecoderENDCLASS_t qt_meta_
     "u",
     "uStride",
     "v",
-    "vStride"
+    "vStride",
+    "updateProgress",
+    "time"
 };
 #undef QT_MOC_LITERAL
 #endif // !QT_MOC_HAS_STRING_DATA
@@ -107,18 +115,20 @@ Q_CONSTINIT static const uint qt_meta_data_CLASSVideoDecoderENDCLASS[] = {
       11,       // revision
        0,       // classname
        0,    0, // classinfo
-       1,   14, // methods
+       2,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
        0,       // flags
-       1,       // signalCount
+       2,       // signalCount
 
  // signals: name, argc, parameters, tag, flags, initial metatype offsets
-       1,    8,   20,    2, 0x06,    1 /* Public */,
+       1,    8,   26,    2, 0x06,    1 /* Public */,
+      12,    1,   43,    2, 0x06,   10 /* Public */,
 
  // signals: parameters
     QMetaType::Void, QMetaType::Int, QMetaType::Int, 0x80000000 | 5, QMetaType::Int, 0x80000000 | 5, QMetaType::Int, 0x80000000 | 5, QMetaType::Int,    3,    4,    6,    7,    8,    9,   10,   11,
+    QMetaType::Void, QMetaType::Double,   13,
 
        0        // eod
 };
@@ -141,7 +151,10 @@ Q_CONSTINIT const QMetaObject VideoDecoder::staticMetaObject = { {
         QtPrivate::TypeAndForceComplete<const uint8_t *, std::false_type>,
         QtPrivate::TypeAndForceComplete<int, std::false_type>,
         QtPrivate::TypeAndForceComplete<const uint8_t *, std::false_type>,
-        QtPrivate::TypeAndForceComplete<int, std::false_type>
+        QtPrivate::TypeAndForceComplete<int, std::false_type>,
+        // method 'updateProgress'
+        QtPrivate::TypeAndForceComplete<void, std::false_type>,
+        QtPrivate::TypeAndForceComplete<double, std::false_type>
     >,
     nullptr
 } };
@@ -153,6 +166,7 @@ void VideoDecoder::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
         (void)_t;
         switch (_id) {
         case 0: _t->frameReady((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<const uint8_t*>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<const uint8_t*>>(_a[5])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[6])),(*reinterpret_cast< std::add_pointer_t<const uint8_t*>>(_a[7])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[8]))); break;
+        case 1: _t->updateProgress((*reinterpret_cast< std::add_pointer_t<double>>(_a[1]))); break;
         default: ;
         }
     } else if (_c == QMetaObject::IndexOfMethod) {
@@ -161,6 +175,13 @@ void VideoDecoder::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
             using _t = void (VideoDecoder::*)(int , int , const uint8_t * , int , const uint8_t * , int , const uint8_t * , int );
             if (_t _q_method = &VideoDecoder::frameReady; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
                 *result = 0;
+                return;
+            }
+        }
+        {
+            using _t = void (VideoDecoder::*)(double );
+            if (_t _q_method = &VideoDecoder::updateProgress; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
+                *result = 1;
                 return;
             }
         }
@@ -186,13 +207,13 @@ int VideoDecoder::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 1)
+        if (_id < 2)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 1;
+        _id -= 2;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 1)
+        if (_id < 2)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 1;
+        _id -= 2;
     }
     return _id;
 }
@@ -202,5 +223,12 @@ void VideoDecoder::frameReady(int _t1, int _t2, const uint8_t * _t3, int _t4, co
 {
     void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t3))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t4))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t5))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t6))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t7))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t8))) };
     QMetaObject::activate(this, &staticMetaObject, 0, _a);
+}
+
+// SIGNAL 1
+void VideoDecoder::updateProgress(double _t1)
+{
+    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))) };
+    QMetaObject::activate(this, &staticMetaObject, 1, _a);
 }
 QT_WARNING_POP

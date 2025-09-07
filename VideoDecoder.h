@@ -34,12 +34,16 @@ public:
     void pause(); // 暂停
     void resume(); // 继续
     void updateAudioClock(double pts);
+    double getDuration() const;
+    void seek(double time);
 
 signals:
     void frameReady(int w, int h,
                      const uint8_t* y, int yStride,
                      const uint8_t* u, int uStride,
                      const uint8_t* v, int vStride);
+
+    void updateProgress(double time);
 private:
     void checkPause();
     void demuxLoop();
@@ -88,33 +92,14 @@ private:
     int bytesPerSecond_ = 0;
 
     double audioClockPts_ = 0;
-    double audioClockDuration_ = 0;
+    double videoDuration_ = 0;
 
     double last_delay_= 0;
     double last_pts_ = 0;
 
     QAudioSink* audioSink_;
 
-
-    double audioClock_ = 0.0;   // 基础时钟
-    QElapsedTimer audioTimer_;              // 音频计时器
-    double currentAudioPts_ = 0.0;          // 当前播放帧的PTS
-    double currentAudioDuration_ = 0.0;     // 当前播放帧持续时间
-
-    QElapsedTimer audioPlaybackTimer_;
     QMutex audioClockMutex_;
-
-    // 视频同步相关
-    double lastVideoPts_ = -1.0;
-    double frameInterval_ = 0.033; // 默认30fps
-    int consecutiveDrops_ = 0;
-
-    // 音频帧队列
-    struct AudioFrame {
-        double pts;
-        double duration;
-    };
-    QQueue<AudioFrame> audioFrames_;
 };
 
 #endif // VIDEODECODER_H

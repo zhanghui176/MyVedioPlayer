@@ -58,7 +58,35 @@ bool VideoDecoder::openFile(const QString &filename) {
     bytesPerSecond_ = audioCodecCtx_->sample_rate * audioCodecCtx_->ch_layout.nb_channels *
                       av_get_bytes_per_sample(audioCodecCtx_->sample_fmt);
     std::cout << "audio sample rate: " << audioCodecCtx_->sample_rate << ",channels is " << audioCodecCtx_->ch_layout.nb_channels << std::endl;
+
     return true;
+}
+
+double VideoDecoder::getDuration() const {
+    if (!formatCtx_) return 0.0;
+
+    // 优先使用视频流时长
+    if (videoStreamIdx_ >= 0) {
+        AVStream *videoStream = formatCtx_->streams[videoStreamIdx_];
+        if (videoStream->duration != AV_NOPTS_VALUE) {
+            return videoStream->duration * av_q2d(videoStream->time_base);
+        }
+    }
+
+    // 其次使用音频流时长
+    if (audioStreamIdx_ >= 0) {
+        AVStream *audioStream = formatCtx_->streams[audioStreamIdx_];
+        if (audioStream->duration != AV_NOPTS_VALUE) {
+            return audioStream->duration * av_q2d(audioStream->time_base);
+        }
+    }
+
+    // 最后使用容器时长
+    if (formatCtx_->duration != AV_NOPTS_VALUE) {
+        return static_cast<double>(formatCtx_->duration) / AV_TIME_BASE;
+    }
+
+    return 0.0;
 }
 
 void VideoDecoder::start() {
@@ -74,7 +102,6 @@ void VideoDecoder::start() {
     videoDecodeThread_->start();
     videoThread_->start();
     audioThread_->start();
-    audioTimer_.start();
 }
 
 void VideoDecoder::stop() {
@@ -118,6 +145,43 @@ void VideoDecoder::resume() {
         audioSink_->resume();
     }
     pauseCond_.wakeAll(); // 唤醒所有等待的线程
+}
+
+void VideoDecoder::seek(double time)
+{
+    if (time == 0 || !formatCtx_) return;
+
+    pause();
+
+    int64_t ts = static_cast<int64_t>(time / av_q2d(formatCtx_->streams[videoStreamIdx_]->time_base));
+
+    if (av_seek_frame(formatCtx_, videoStreamIdx_, ts, AVSEEK_FLAG_BACKWARD) < 0)
+    {
+        std::cout << "seek failed" << std::endl;
+        resume();
+        return;
+    }
+
+    videoBuffer_.clear();
+    audioBuffer_.clear();
+    videoFrameBuffer_.clear();
+    audioFrameBuffer_.clear();
+
+    avcodec_flush_buffers(vedioCodecCtx_);
+    avcodec_flush_buffers(audioCodecCtx_);
+
+    {
+        QMutexLocker lock(&audioClockMutex_);
+        audioClockPts_ = time;
+    }
+
+    {
+        std::lock_guard<std::mutex> lk(startMtx_);
+        isAudioReady_.store(false);
+    }
+
+    std::cout << "seek to " << time << " seconds" << std::endl;
+    resume();
 }
 
 // 更新音频时钟
@@ -292,6 +356,7 @@ void VideoDecoder::videoThread()
         int vStride = frame->linesize[2];
 
         emit frameReady(w, h, y, yStride, u, uStride, v, vStride);
+        emit updateProgress(getAudioClock());
     }
     sws_freeContext(swsctx);
 }

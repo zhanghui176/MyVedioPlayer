@@ -12,6 +12,7 @@ INCLUDEPATH += $$[QT_INSTALL_HEADERS]
 SOURCES += \
     LoginDialog.cpp \
     OpenGLVideoWidget.cpp \
+    Utility.cpp \
     VideoDecoder.cpp \
     VideoPlayer.cpp \
     main.cpp \
@@ -21,6 +22,7 @@ HEADERS += \
     FrameBuffer.h \
     LoginDialog.h \
     OpenGLVideoWidget.h \
+    Utility.h \
     VideoDecoder.h \
     VideoPlayer.h \
     mainwindow.h
