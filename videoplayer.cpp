@@ -72,9 +72,10 @@ videoPlayer::~videoPlayer()
 
 void videoPlayer::on_PlayPause_clicked()
 {
-
+std::cout << "on_PlayPause_clicked" << std::endl;
     if (!isStart_)
     {
+        std::cout << "on_PlayPause_clicked  1 " << std::endl;
         decoder.start();
         isPlaying_ = true;
         isStart_ = true;
@@ -82,11 +83,13 @@ void videoPlayer::on_PlayPause_clicked()
     }
     if (isPlaying_)
     {
+        std::cout << "on_PlayPause_clicked  2 " << std::endl;
         decoder.pause();
         isPlaying_ = false;
     }
     else
     {
+        std::cout << "on_PlayPause_clicked  3 " << std::endl;
         decoder.resume();
         isPlaying_ = true;
     }

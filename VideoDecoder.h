@@ -71,8 +71,8 @@ private:
     std::mutex startMtx_;
     std::condition_variable startCond_;
 
-    QMutex pauseMutex_;
-    QWaitCondition pauseCond_;
+    std::mutex pauseMutex_;
+    std::condition_variable pauseCond_;
 
     FrameBuffer<AVPacket*> videoBuffer_;
     FrameBuffer<AVPacket*> audioBuffer_;
@@ -89,6 +89,12 @@ private:
     AVCodecContext *audioCodecCtx_;
 
     QIODevice *audioDevice_;
+    std::mutex audioClockMutex_;
+    std::mutex videoCodecMtx_;
+    std::mutex audioCodecMtx_;
+    std::mutex audioDeviceMtx_;
+    double videoDurationIdeal_;
+    bool isSeeking_ = false;
     int bytesPerSecond_ = 0;
 
     double audioClockPts_ = 0;
@@ -98,8 +104,6 @@ private:
     double last_pts_ = 0;
 
     QAudioSink* audioSink_;
-
-    QMutex audioClockMutex_;
 };
 
 #endif // VIDEODECODER_H
